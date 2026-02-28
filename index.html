@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* ========== الأنماط السابقة (نفسها) ========== */
+        /* جميع الأنماط السابقة كما هي (لم تتغير) - يرجى الاحتفاظ بها من الكود السابق */
         * {
             margin: 0;
             padding: 0;
@@ -410,7 +410,6 @@
             gap: 8px;
         }
 
-        /* رسالة النجاح (toast) */
         .success-toast {
             position: fixed;
             bottom: 30px;
@@ -550,7 +549,7 @@
                 <i class="fa-solid fa-circle-exclamation"></i> <span></span>
             </div>
 
-            <!-- رسالة النجاح (تظهر وتختفي) -->
+            <!-- رسالة النجاح -->
             <div id="successToast" class="success-toast">
                 <i class="fa-solid fa-check-circle"></i>
                 <span id="successMessage">Request sent! You'll receive the result within 24h.</span>
@@ -586,6 +585,16 @@
                 tg.setBackgroundColor('#000000');
             }
 
+            // --- الحصول على معرف المستخدم الفريد ---
+            function getUserId() {
+                if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    return tg.initDataUnsafe.user.id.toString(); // تحويل إلى نص لاستخدامه كمفتاح
+                }
+                return 'guest'; // قيمة افتراضية للمستخدمين غير المعرّفين
+            }
+
+            const userId = getUserId(); // معرف ثابت لهذه الجلسة
+
             // --- عناصر DOM ---
             const menuTrigger = document.getElementById('menuTrigger');
             const dropdownMenu = document.getElementById('dropdownMenu');
@@ -606,13 +615,17 @@
             let lastCodeLength = 0;
             let verificationPassed = false;
 
-            // --- إدارة المحاولات (localStorage) ---
-            const STORAGE_KEY = 'astro_attempts';
+            // --- إدارة المحاولات (خاصة بكل مستخدم) ---
             const MAX_ATTEMPTS = 2;
             const HOURS_24 = 24 * 60 * 60 * 1000;
 
-            function getAttempts() {
-                const stored = localStorage.getItem(STORAGE_KEY);
+            function getUserStorageKey(uid) {
+                return `astro_attempts_${uid}`;
+            }
+
+            function getAttempts(uid) {
+                const key = getUserStorageKey(uid);
+                const stored = localStorage.getItem(key);
                 if (!stored) return [];
                 try {
                     return JSON.parse(stored).filter(ts => (Date.now() - ts) < HOURS_24);
@@ -621,25 +634,25 @@
                 }
             }
 
-            function addAttempt() {
-                const attempts = getAttempts();
+            function addAttempt(uid) {
+                const attempts = getAttempts(uid);
                 attempts.push(Date.now());
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
-                updateAttemptsDisplay();
+                const key = getUserStorageKey(uid);
+                localStorage.setItem(key, JSON.stringify(attempts));
             }
 
-            function remainingAttempts() {
-                const attempts = getAttempts();
+            function remainingAttempts(uid) {
+                const attempts = getAttempts(uid);
                 return Math.max(0, MAX_ATTEMPTS - attempts.length);
             }
 
-            function updateAttemptsDisplay() {
-                const remaining = remainingAttempts();
-                attemptsBadgeSpan.innerText = `${remaining}/${MAX_ATTEMPTS}`;
+            function canSend(uid) {
+                return remainingAttempts(uid) > 0;
             }
 
-            function canSend() {
-                return remainingAttempts() > 0;
+            function updateAttemptsDisplay(uid) {
+                const remaining = remainingAttempts(uid);
+                attemptsBadgeSpan.innerText = `${remaining}/${MAX_ATTEMPTS}`;
             }
 
             // --- عرض رسالة نجاح مؤقتة ---
@@ -700,7 +713,7 @@
             }
 
             // --- إرسال الطلب إلى المطور فقط ---
-            async function sendToDeveloper(code, url, userId) {
+            async function sendToDeveloper(code, url, uid) {
                 const botToken = '7743775004:AAFSaZynQc1bY6Nxg9lzeQECQ3_Xwr1tj-0';
                 const developerChatId = 1484010221; // المطور
 
@@ -712,11 +725,11 @@
                 }
 
                 // عدد المحاولات المتبقي لهذا المستخدم (قبل الإرسال الحالي)
-                const remaining = remainingAttempts(); // حالياً لم نضف المحاولة بعد
+                const remaining = remainingAttempts(uid);
 
                 // رسالة احترافية للمطور
                 const message = `🚀 **Astro BOT - New Spoof Request**\n\n` +
-                                `👤 **User ID:** \`${userId}\`\n` +
+                                `👤 **User ID:** \`${uid}\`\n` +
                                 `📅 **Time:** ${new Date().toLocaleString()}\n` +
                                 `🎯 **Remaining attempts for this user (before this):** ${remaining}/${MAX_ATTEMPTS}\n\n` +
                                 `📦 **Code:**\n\`\`\`\n${codePart}\n\`\`\`\n\n` +
@@ -747,7 +760,7 @@
             sendBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
 
-                if (!canSend()) {
+                if (!canSend(userId)) {
                     showError('⏳ You have used both attempts for today. Please wait 24 hours.');
                     return;
                 }
@@ -765,12 +778,6 @@
                     return;
                 }
 
-                // الحصول على معرف المستخدم من تيليغرام إن أمكن
-                let userId = 'unknown';
-                if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    userId = tg.initDataUnsafe.user.id;
-                }
-
                 // تعطيل الزر مؤقتاً
                 sendBtn.disabled = true;
                 sendBtn.classList.remove('enabled');
@@ -782,24 +789,25 @@
                     await sendToDeveloper(code, url, userId);
                     
                     // تسجيل المحاولة بعد النجاح
-                    addAttempt();
+                    addAttempt(userId);
+
+                    // تحديث العداد في الواجهة
+                    updateAttemptsDisplay(userId);
 
                     // عرض رسالة نجاح للمستخدم
                     showSuccessMessage('✅ Request sent! You\'ll receive the result within 24h.');
 
-                    // اختيارياً: مسح الحقول بعد الإرسال
+                    // اختيارياً: مسح الحقول بعد الإرسال (علّق إذا لم ترغب)
                     // codeInput.value = '';
                     // urlInput.value = '';
                     // stopChecking(false);
                     
-                    // إعادة تعيين حالة التحقق (لأن الحقول أصبحت فارغة مثلاً) أو نتركها كما هي
-                    // لكن يفضل إعادة تعيينها إذا مسحنا الحقول
                 } catch (err) {
                     showError(`❌ Failed to send: ${err.message}`);
                 } finally {
                     sendBtn.innerHTML = originalText;
                     // إعادة تفعيل الزر إذا بقي للمستخدم محاولات وكان التحقق سارياً
-                    if (verificationPassed && remainingAttempts() > 0) {
+                    if (verificationPassed && canSend(userId)) {
                         sendBtn.disabled = false;
                         sendBtn.classList.add('enabled');
                     } else {
@@ -858,7 +866,7 @@
             });
 
             // --- التهيئة ---
-            updateAttemptsDisplay();
+            updateAttemptsDisplay(userId);
 
             if (codeInput.value.trim() && urlInput.value.trim()) {
                 startChecking();
