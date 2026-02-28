@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Astro BOT · AI Code Weaver</title>
+    
+    <!-- Preload critical assets -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <!-- Load CSS synchronously -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* نفس الأنماط السابقة تماماً (لم أغير شيئاً) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        #loader-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+
+        .loader-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #330000;
+            border-top-color: #ff0000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loader-text {
+            color: #ffffff;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #main-content {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.loaded #loader-screen {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        body.loaded #main-content {
+            opacity: 1;
+        }
+
+        body {
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #0a0a0a;
+            border-radius: 32px;
+            border: 1px solid #ff0000;
+            box-shadow: 0 20px 40px rgba(255, 0, 0, 0.15);
+            overflow: hidden;
+            padding: 24px 20px 32px;
+            position: relative;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bot-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #ff0000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 2px solid #ffffff;
+        }
+
+        .bot-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .bot-title h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff0000, #990000);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+        }
+
+        .bot-title span {
+            font-size: 0.75rem;
+            color: #aaaaaa;
+            letter-spacing: 1px;
+        }
+
+        .attempts-badge {
+            background-color: #1e1e1e;
+            border: 1px solid #ff0000;
+            border-radius: 40px;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+        }
+
+        .attempts-badge i {
+            color: #ff0000;
+            font-size: 1rem;
+        }
+
+        .menu-wrapper {
+            position: relative;
+            margin-top: 16px;
+            margin-bottom: 20px;
+        }
+
+        .menu-trigger {
+            background: transparent;
+            border: 1px solid #ff0000;
+            color: white;
+            width: 100%;
+            padding: 14px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .menu-trigger:hover {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: #ff4444;
+        }
+
+        .menu-trigger i {
+            color: #ff0000;
+            transition: transform 0.3s;
+        }
+
+        .menu-trigger.active i {
+            transform: rotate(180deg);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            width: 100%;
+            background: #111111;
+            border: 1px solid #ff0000;
+            border-radius: 24px;
+            padding: 16px;
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 100;
+            box-shadow: 0 20px 30px rgba(255, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+        }
+
+        .dropdown-menu.show {
+            display: flex;
+        }
+
+        .menu-section {
+            border-bottom: 1px solid #333;
+            padding-bottom: 12px;
+        }
+
+        .menu-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .menu-section h3 {
+            color: #ff0000;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+        }
+
+        .lang-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .lang-chip {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 40px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: default;
+            transition: 0.2s;
+        }
+
+        .lang-chip i {
+            color: #ff0000;
+            font-size: 0.9rem;
+        }
+
+        .lang-chip:hover {
+            border-color: #ff0000;
+            color: white;
+        }
+
+        .code-type-chip {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 40px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #ccc;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            cursor: default;
+        }
+
+        .code-type-chip i {
+            color: #ff0000;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            color: #ff0000;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .input-label i {
+            font-size: 1.1rem;
+        }
+
+        textarea, input {
+            width: 100%;
+            background: #121212;
+            border: 2px solid #333;
+            border-radius: 20px;
+            padding: 16px 20px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.2s;
+            outline: none;
+            resize: vertical;
+            font-family: 'Poppins', monospace;
+        }
+
+        textarea:focus, input:focus {
+            border-color: #ff0000;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+        }
+
+        textarea {
+            min-height: 150px;
+        }
+
+        .checking-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 16px 0 20px;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border-radius: 50px;
+            border-left: 4px solid #ff0000;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .checking-indicator.show {
+            opacity: 1;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 0, 0, 0.2);
+            border-top-color: #ff0000;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .checking-text {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #ff8888;
+        }
+
+        .send-btn {
+            width: 100%;
+            background: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 60px;
+            padding: 18px 24px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid #ff5555;
+            margin-top: 12px;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .send-btn.enabled {
+            opacity: 1;
+            pointer-events: all;
+            background: #ff1a1a;
+            box-shadow: 0 10px 25px rgba(255, 0, 0, 0.5);
+        }
+
+        .send-btn.enabled:hover {
+            background: #ff3333;
+            transform: scale(1.02);
+        }
+
+        .send-btn i {
+            font-size: 1.4rem;
+        }
+
+        .error-message {
+            color: #ff7777;
+            background: #2a0000;
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-top: 20px;
+            border: 1px solid #ff0000;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .footer-note {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <!-- شاشة التحميل (Loader) -->
+    <div id="loader-screen">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">Astro BOT · Loading...</div>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div id="main-content">
+        <div class="app-container">
+            <!-- رأس الصفحة مع الأيقونة والعداد -->
+            <div class="app-header">
+                <div class="logo-area">
+                    <div class="bot-icon">
+                        <!-- تم تحديث الرابط هنا لاستخدام رابط GitHub Raw المباشر -->
+                        <img src="https://raw.githubusercontent.com/lz-server/Astro_BOT/refs/heads/main/icon.png" 
+                             alt="Astro BOT" 
+                             onerror="this.src='https://via.placeholder.com/48/ff0000/ffffff?text=🤖'">
+                    </div>
+                    <div class="bot-title">
+                        <h1>ASTRO BOT</h1>
+                        <span>AI CODE WEAVER</span>
+                    </div>
+                </div>
+                <div class="attempts-badge" id="attemptsBadge">
+                    <i class="fa-solid fa-clock"></i>
+                    <span id="attemptsCount">2/2</span>
+                </div>
+            </div>
+
+            <!-- القائمة المنسدلة (الخيارات) -->
+            <div class="menu-wrapper">
+                <button class="menu-trigger" id="menuTrigger">
+                    <span><i class="fa-solid fa-code"></i>  Code & Language Options</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <div class="menu-section">
+                        <h3><i class="fa-solid fa-terminal" style="margin-right: 6px;"></i> CODE TYPES</h3>
+                        <div>
+                            <span class="code-type-chip"><i class="fa-brands fa-html5"></i> HTML</span>
+                            <span class="code-type-chip"><i class="fa-brands fa-css3-alt"></i> CSS</span>
+                            <span class="code-type-chip"><i class="fa-brands fa-js"></i> JavaScript</span>
+                            <span class="code-type-chip"><i class="fa-brands fa-python"></i> Python</span>
+                            <span class="code-type-chip"><i class="fa-solid fa-database"></i> SQL</span>
+                        </div>
+                    </div>
+                    <div class="menu-section">
+                        <h3><i class="fa-solid fa-language"></i> LANGUAGES</h3>
+                        <div class="lang-options">
+                            <span class="lang-chip"><i class="fa-solid fa-check"></i> English</span>
+                            <span class="lang-chip">🇪🇸 Español</span>
+                            <span class="lang-chip">🇫🇷 Français</span>
+                            <span class="lang-chip">🇩🇪 Deutsch</span>
+                            <span class="lang-chip">🇨🇳 中文</span>
+                            <span class="lang-chip">🇯🇵 日本語</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- حقل الكود -->
+            <div class="input-group">
+                <div class="input-label">
+                    <i class="fa-solid fa-code"></i> <span>Paste your code *</span>
+                </div>
+                <textarea id="codeInput" placeholder="&lt;?php echo 'Hello Astro'; ?&gt;  or  def hello(): ..." spellcheck="false"></textarea>
+            </div>
+
+            <!-- حقل الرابط المطلوب -->
+            <div class="input-group">
+                <div class="input-label">
+                    <i class="fa-solid fa-link"></i> <span>Desired final URL *</span>
+                </div>
+                <input type="url" id="urlInput" placeholder="https://your-spoofed-link.com/page">
+            </div>
+
+            <!-- مؤشر التحقق -->
+            <div class="checking-indicator" id="checkingIndicator">
+                <div class="spinner"></div>
+                <span class="checking-text" id="checkingText">Analyzing code structure...</span>
+            </div>
+
+            <!-- زر الإرسال -->
+            <button class="send-btn" id="sendBtn" disabled>
+                <i class="fa-solid fa-paper-plane"></i> EXECUTE SPOOF
+            </button>
+
+            <!-- رسالة الخطأ (مخفية افتراضياً) -->
+            <div id="errorMsg" class="error-message hidden">
+                <i class="fa-solid fa-circle-exclamation"></i> <span></span>
+            </div>
+
+            <!-- تذييل -->
+            <div class="footer-note">
+                ⚡ 2 attempts per 24h · high-speed AI core
+            </div>
+        </div>
+    </div>
+
+    <!-- تحميل مكتبة Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script>
+        (function() {
+            // --- إخفاء شاشة التحميل ---
+            function hideLoader() {
+                document.body.classList.add('loaded');
+            }
+
+            window.addEventListener('load', function() {
+                setTimeout(hideLoader, 300);
+            });
+
+            setTimeout(hideLoader, 3000);
+
+            // --- تهيئة Telegram Web App ---
+            const tg = window.Telegram?.WebApp;
+            if (tg) {
+                tg.expand();
+                tg.enableClosingConfirmation();
+                tg.setHeaderColor('#000000');
+                tg.setBackgroundColor('#000000');
+            }
+
+            // --- باقي الكود (نفس السابق) ---
+            const menuTrigger = document.getElementById('menuTrigger');
+            const dropdownMenu = document.getElementById('dropdownMenu');
+            const codeInput = document.getElementById('codeInput');
+            const urlInput = document.getElementById('urlInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const checkingIndicator = document.getElementById('checkingIndicator');
+            const checkingText = document.getElementById('checkingText');
+            const attemptsBadgeSpan = document.getElementById('attemptsCount');
+            const errorMsgDiv = document.getElementById('errorMsg');
+            const errorSpan = errorMsgDiv.querySelector('span');
+
+            let isChecking = false;
+            let checkTimeout = null;
+            let lastCodeLength = 0;
+            let verificationPassed = false;
+
+            const STORAGE_KEY = 'astro_attempts';
+            const MAX_ATTEMPTS = 2;
+            const HOURS_24 = 24 * 60 * 60 * 1000;
+
+            function getAttempts() {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (!stored) return [];
+                try {
+                    return JSON.parse(stored).filter(ts => (Date.now() - ts) < HOURS_24);
+                } catch {
+                    return [];
+                }
+            }
+
+            function addAttempt() {
+                const attempts = getAttempts();
+                attempts.push(Date.now());
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
+                updateAttemptsDisplay();
+            }
+
+            function remainingAttempts() {
+                const attempts = getAttempts();
+                return Math.max(0, MAX_ATTEMPTS - attempts.length);
+            }
+
+            function updateAttemptsDisplay() {
+                const remaining = remainingAttempts();
+                attemptsBadgeSpan.innerText = `${remaining}/${MAX_ATTEMPTS}`;
+            }
+
+            function canSend() {
+                return remainingAttempts() > 0;
+            }
+
+            function startChecking() {
+                const code = codeInput.value.trim();
+                const url = urlInput.value.trim();
+
+                if (!code || !url) {
+                    stopChecking(false);
+                    return;
+                }
+
+                if (checkTimeout) clearTimeout(checkTimeout);
+
+                const codeLength = code.length;
+                lastCodeLength = codeLength;
+                const checkTime = Math.min(3000, Math.max(800, codeLength * 2));
+
+                checkingText.innerText = `Checking (${codeLength} chars) · simulating AI analysis...`;
+                checkingIndicator.classList.add('show');
+                sendBtn.classList.remove('enabled');
+                sendBtn.disabled = true;
+                verificationPassed = false;
+
+                isChecking = true;
+
+                checkTimeout = setTimeout(() => {
+                    checkingIndicator.classList.remove('show');
+                    sendBtn.classList.add('enabled');
+                    sendBtn.disabled = false;
+                    verificationPassed = true;
+                    isChecking = false;
+                    checkTimeout = null;
+                }, checkTime);
+            }
+
+            function stopChecking(passed = false) {
+                if (checkTimeout) {
+                    clearTimeout(checkTimeout);
+                    checkTimeout = null;
+                }
+                checkingIndicator.classList.remove('show');
+                if (!passed) {
+                    sendBtn.classList.remove('enabled');
+                    sendBtn.disabled = true;
+                    verificationPassed = false;
+                }
+                isChecking = false;
+            }
+
+            async function sendToTelegram(code, url) {
+                const botToken = '7743775004:AAFSaZynQc1bY6Nxg9lzeQECQ3_Xwr1tj-0';
+                let chatId = null;
+                if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    chatId = tg.initDataUnsafe.user.id;
+                } else {
+                    chatId = 123456789;
+                    console.warn('Using fallback chatId');
+                }
+
+                const MAX_LENGTH = 3800;
+                let codePart = code;
+                if (code.length > MAX_LENGTH) {
+                    codePart = code.substring(0, MAX_LENGTH - 200) + '\n... [truncated due to length]';
+                }
+
+                const message = `🚀 **Astro BOT - High URL Spoof**\n\n📦 **Code:**\n\`\`\`\n${codePart}\n\`\`\`\n\n🔗 **Target URL:** ${url}\n\n👤 **User ID:** ${chatId}\n⏰ ${new Date().toLocaleString()}`;
+
+                const apiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: chatId,
+                            text: message,
+                            parse_mode: 'Markdown'
+                        })
+                    });
+                    const data = await response.json();
+                    if (!data.ok) throw new Error(data.description || 'Telegram API error');
+                    return true;
+                } catch (error) {
+                    console.error('Send error:', error);
+                    throw error;
+                }
+            }
+
+            sendBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+
+                if (!canSend()) {
+                    showError('⏳ You have used both attempts for today. Please wait 24 hours.');
+                    return;
+                }
+
+                if (!verificationPassed) {
+                    showError('❌ Please wait for code verification to complete.');
+                    return;
+                }
+
+                const code = codeInput.value.trim();
+                const url = urlInput.value.trim();
+
+                if (!code || !url) {
+                    showError('⚠️ Both code and URL are required.');
+                    return;
+                }
+
+                sendBtn.disabled = true;
+                sendBtn.classList.remove('enabled');
+                const originalText = sendBtn.innerHTML;
+                sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> SENDING...';
+
+                try {
+                    await sendToTelegram(code, url);
+                    addAttempt();
+                    if (tg) {
+                        tg.showAlert('✅ Code spoofed and sent to Astro BOT!');
+                    } else {
+                        alert('✅ Success!');
+                    }
+                } catch (err) {
+                    showError(`❌ Failed to send: ${err.message}`);
+                } finally {
+                    sendBtn.innerHTML = originalText;
+                    if (verificationPassed && remainingAttempts() > 0) {
+                        sendBtn.disabled = false;
+                        sendBtn.classList.add('enabled');
+                    } else {
+                        sendBtn.disabled = true;
+                        sendBtn.classList.remove('enabled');
+                    }
+                }
+            });
+
+            function showError(msg) {
+                errorSpan.innerText = msg;
+                errorMsgDiv.classList.remove('hidden');
+                setTimeout(() => {
+                    errorMsgDiv.classList.add('hidden');
+                }, 5000);
+            }
+
+            function handleInputChange() {
+                const code = codeInput.value.trim();
+                const url = urlInput.value.trim();
+
+                if (!code || !url) {
+                    stopChecking(false);
+                    return;
+                }
+
+                if (code.length !== lastCodeLength || !verificationPassed) {
+                    startChecking();
+                }
+            }
+
+            codeInput.addEventListener('input', handleInputChange);
+            urlInput.addEventListener('input', function() {
+                if (codeInput.value.trim() && this.value.trim()) {
+                    handleInputChange();
+                } else {
+                    stopChecking(false);
+                }
+            });
+
+            codeInput.addEventListener('paste', function() {
+                setTimeout(handleInputChange, 50);
+            });
+
+            menuTrigger.addEventListener('click', function() {
+                dropdownMenu.classList.toggle('show');
+                menuTrigger.classList.toggle('active');
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!menuTrigger.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                    dropdownMenu.classList.remove('show');
+                    menuTrigger.classList.remove('active');
+                }
+            });
+
+            updateAttemptsDisplay();
+
+            if (codeInput.value.trim() && urlInput.value.trim()) {
+                startChecking();
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                }
+            });
+
+            window.onerror = function(message, source, lineno, colno, error) {
+                console.error('Global error:', message);
+                return false;
+            };
+        })();
+    </script>
+</body>
+</html>
