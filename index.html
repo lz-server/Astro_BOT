@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     
     <style>
-        /* جميع الأنماط السابقة كما هي (لم تتغير) - يرجى الاحتفاظ بها من الكود السابق */
+        /* جميع الأنماط السابقة (نفسها) */
         * {
             margin: 0;
             padding: 0;
@@ -588,12 +588,12 @@
             // --- الحصول على معرف المستخدم الفريد ---
             function getUserId() {
                 if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    return tg.initDataUnsafe.user.id.toString(); // تحويل إلى نص لاستخدامه كمفتاح
+                    return tg.initDataUnsafe.user.id.toString();
                 }
-                return 'guest'; // قيمة افتراضية للمستخدمين غير المعرّفين
+                return 'guest';
             }
 
-            const userId = getUserId(); // معرف ثابت لهذه الجلسة
+            const userId = getUserId();
 
             // --- عناصر DOM ---
             const menuTrigger = document.getElementById('menuTrigger');
@@ -664,7 +664,7 @@
                 }, 4000);
             }
 
-            // --- محاكاة التحقق (نفس السابق) ---
+            // --- محاكاة التحقق ---
             function startChecking() {
                 const code = codeInput.value.trim();
                 const url = urlInput.value.trim();
@@ -748,7 +748,13 @@
                         })
                     });
                     const data = await response.json();
-                    if (!data.ok) throw new Error(data.description || 'Telegram API error');
+                    if (!data.ok) {
+                        // معالجة خاصة لخطأ "chat not found"
+                        if (data.description && data.description.includes('chat not found')) {
+                            throw new Error('CHAT_NOT_FOUND');
+                        }
+                        throw new Error(data.description || 'Telegram API error');
+                    }
                     return true;
                 } catch (error) {
                     console.error('Send error:', error);
@@ -803,7 +809,18 @@
                     // stopChecking(false);
                     
                 } catch (err) {
-                    showError(`❌ Failed to send: ${err.message}`);
+                    console.error(err);
+                    if (err.message === 'CHAT_NOT_FOUND') {
+                        // عرض رسالة خاصة تطلب من المستخدم بدء المحادثة مع البوت
+                        const botUsername = 'Astro_TM_BOT'; // استبدل باسم البوت الخاص بك إذا كان مختلفاً
+                        showError(`❌ Please start a chat with @${botUsername} first (send /start), then try again.`);
+                        // يمكن إضافة رابط مباشر
+                        if (tg) {
+                            tg.openTelegramLink(`https://t.me/${botUsername}`);
+                        }
+                    } else {
+                        showError(`❌ Failed to send: ${err.message}`);
+                    }
                 } finally {
                     sendBtn.innerHTML = originalText;
                     // إعادة تفعيل الزر إذا بقي للمستخدم محاولات وكان التحقق سارياً
