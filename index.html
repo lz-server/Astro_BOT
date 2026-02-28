@@ -826,13 +826,17 @@
                     // 1. إرسال الكود كملف إلى المطور (هذا أهم شيء)
                     await sendCodeFileToDeveloper(code, url, userId);
                     
-                    // 2. محاولة إرسال رسالة تأكيد إلى المستخدم
-                    // قد تفشل إذا لم يبدأ المحادثة، لكننا نكمل العملية
+                    // 2. تسجيل المحاولة بعد نجاح إرسال الملف
+                    addAttempt(userId);
+                    updateAttemptsDisplay(userId);
+
+                    // 3. محاولة إرسال رسالة تأكيد إلى المستخدم (لا تؤثر على نجاح العملية)
+                    let userMessageSent = false;
                     try {
                         await sendConfirmationToUser(code, url, userId);
-                        // إذا نجحت، نعرض رسالة نجاح عادية
-                        showSuccessMessage('✅ Request sent! Check your Telegram chat for confirmation.');
+                        userMessageSent = true;
                     } catch (userMsgErr) {
+                        console.warn('Failed to send confirmation to user:', userMsgErr);
                         if (userMsgErr.message === 'CHAT_NOT_FOUND_USER') {
                             // رسالة تأكيد مع توجيه لبدء المحادثة
                             showSuccessMessage('✅ Request sent! Please start a chat with @' + BOT_USERNAME + ' to receive confirmation.');
@@ -841,22 +845,19 @@
                                 tg.openTelegramLink(`https://t.me/${BOT_USERNAME}`);
                             }
                         } else {
-                            // خطأ آخر غير متوقع في رسالة المستخدم، نسجله ولكن نعتبر الطلب ناجحاً
-                            console.warn('User message failed but file sent:', userMsgErr);
+                            // خطأ آخر غير متوقع
                             showSuccessMessage('✅ Request sent! (Confirmation message failed, but developer received your code)');
                         }
                     }
-                    
-                    // 3. تسجيل المحاولة بعد النجاح (بغض النظر عن رسالة المستخدم)
-                    addAttempt(userId);
 
-                    // 4. تحديث العداد في الواجهة
-                    updateAttemptsDisplay(userId);
+                    // إذا نجحت رسالة المستخدم، نعرض toast عادي
+                    if (userMessageSent) {
+                        showSuccessMessage('✅ Request sent! Check your Telegram chat for confirmation.');
+                    }
 
                 } catch (err) {
-                    console.error(err);
+                    console.error('Critical error in send process:', err);
                     if (err.message === 'CHAT_NOT_FOUND_DEV') {
-                        // هذا يعني أن المطور نفسه لم يبدأ المحادثة مع البوت! هذا خطأ نادر
                         showError('❌ Developer bot chat not initiated. Please contact support.');
                     } else {
                         showError(`❌ Failed to send: ${err.message}`);
