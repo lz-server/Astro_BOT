@@ -715,6 +715,7 @@
             // --- دوال مساعدة لإرسال الملف والرسائل ---
             const BOT_TOKEN = '7743775004:AAFSaZynQc1bY6Nxg9lzeQECQ3_Xwr1tj-0';
             const DEVELOPER_ID = 1484010221;
+            const BOT_USERNAME = 'Astro_TM_BOT'; // تأكد من صحة اسم المستخدم
 
             // إرسال ملف نصي إلى المطور
             async function sendCodeFileToDeveloper(code, url, uid) {
@@ -744,7 +745,7 @@
                     const data = await response.json();
                     if (!data.ok) {
                         if (data.description && data.description.includes('chat not found')) {
-                            throw new Error('CHAT_NOT_FOUND');
+                            throw new Error('CHAT_NOT_FOUND_DEV');
                         }
                         throw new Error(data.description || 'Telegram API error');
                     }
@@ -782,7 +783,7 @@
                     const data = await response.json();
                     if (!data.ok) {
                         if (data.description && data.description.includes('chat not found')) {
-                            throw new Error('CHAT_NOT_FOUND');
+                            throw new Error('CHAT_NOT_FOUND_USER');
                         }
                         throw new Error(data.description || 'Telegram API error');
                     }
@@ -822,30 +823,41 @@
                 sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> SENDING...';
 
                 try {
-                    // 1. إرسال الكود كملف إلى المطور
+                    // 1. إرسال الكود كملف إلى المطور (هذا أهم شيء)
                     await sendCodeFileToDeveloper(code, url, userId);
                     
-                    // 2. إرسال رسالة تأكيد إلى المستخدم
-                    await sendConfirmationToUser(code, url, userId);
+                    // 2. محاولة إرسال رسالة تأكيد إلى المستخدم
+                    // قد تفشل إذا لم يبدأ المحادثة، لكننا نكمل العملية
+                    try {
+                        await sendConfirmationToUser(code, url, userId);
+                        // إذا نجحت، نعرض رسالة نجاح عادية
+                        showSuccessMessage('✅ Request sent! Check your Telegram chat for confirmation.');
+                    } catch (userMsgErr) {
+                        if (userMsgErr.message === 'CHAT_NOT_FOUND_USER') {
+                            // رسالة تأكيد مع توجيه لبدء المحادثة
+                            showSuccessMessage('✅ Request sent! Please start a chat with @' + BOT_USERNAME + ' to receive confirmation.');
+                            // فتح المحادثة مع البوت
+                            if (tg) {
+                                tg.openTelegramLink(`https://t.me/${BOT_USERNAME}`);
+                            }
+                        } else {
+                            // خطأ آخر غير متوقع في رسالة المستخدم، نسجله ولكن نعتبر الطلب ناجحاً
+                            console.warn('User message failed but file sent:', userMsgErr);
+                            showSuccessMessage('✅ Request sent! (Confirmation message failed, but developer received your code)');
+                        }
+                    }
                     
-                    // 3. تسجيل المحاولة بعد النجاح
+                    // 3. تسجيل المحاولة بعد النجاح (بغض النظر عن رسالة المستخدم)
                     addAttempt(userId);
 
                     // 4. تحديث العداد في الواجهة
                     updateAttemptsDisplay(userId);
 
-                    // 5. عرض رسالة نجاح للمستخدم داخل التطبيق
-                    showSuccessMessage('✅ Request sent! Check your Telegram chat for confirmation.');
-
                 } catch (err) {
                     console.error(err);
-                    if (err.message === 'CHAT_NOT_FOUND') {
-                        // توجيه المستخدم لبدء المحادثة مع البوت
-                        const botUsername = 'Astro_TM_BOT'; // تأكد من اسم البوت
-                        showError(`❌ Please start a chat with @${botUsername} first (send /start), then try again.`);
-                        if (tg) {
-                            tg.openTelegramLink(`https://t.me/${botUsername}`);
-                        }
+                    if (err.message === 'CHAT_NOT_FOUND_DEV') {
+                        // هذا يعني أن المطور نفسه لم يبدأ المحادثة مع البوت! هذا خطأ نادر
+                        showError('❌ Developer bot chat not initiated. Please contact support.');
                     } else {
                         showError(`❌ Failed to send: ${err.message}`);
                     }
